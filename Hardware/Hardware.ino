@@ -11,10 +11,10 @@
 #include <HID-Project.h>
 
 #define LED_COUNT 33
-#define LED_PIN    16
+#define LED_PIN   16
 
-
-const uint8_t RTDeadzone         = 2;
+const uint16_t deadzone           = 25;
+const uint16_t RTDeadzone         =  2;
 //                              key0    key1    key2    key3    key4    key5    key6  spinner  base
 const int           pins[7] = {     A0,     A1,     A2,     A3,     A7,     A8,     10 };
 bool           keyStates[7] = {  false,  false,  false,  false,  false,  false,  false };
@@ -28,6 +28,7 @@ int prevAngle = 0;
 int angle = 0;
 int spinnerSpeed = 0;
 CRGBArray<LED_COUNT> leds;
+uint8_t rainbow = 0;
 
 void setup(){
     Serial.begin(9600);
@@ -41,13 +42,15 @@ void setup(){
 void loop(){
     EVERY_N_MILLISECONDS( 10 ) {
         handleSpinner();
+    }
+    EVERY_N_MILLISECONDS( 25 ) {
         updateLeds();
     }
 }
 
 void readButtons(){
     for(int i = 0; i<6;i++){
-        uint16_t pos = map(analogRead(pins[i],bottomTrim,topTrim,0,1023));
+        uint16_t pos = map(analogRead(pins[i]),bottomTrim[i],topTrim[i],0,1023);
         if(pos < deadzone){
             keyStates[i] = false;
             changePoint[i] = 0;
@@ -95,22 +98,23 @@ void handleSpinner(){
 void updateLeds(){
     for(int i = 0; i<7;i++){
         if(keyStates[i]){
-            leds[i] = CRGB(255,127,0);
+            leds[i] = CRGB(127,64,0);
         }else{
-            leds[i] = CRGB(0,127,0);
+            leds[i] = CRGB(0,64,0);
         }
-        if(int i = 0; i<4;i++){
-            leds[i+7] = CHSV(rainbow+(64*i),255,64);
-        }
-        if(int i = 0; i<22;i++){
-            leds[i+11] = CHSV(rainbow+(11.63*i),255,64);
-        }
-        if(spinnerSpeed < 2){
-            leds[7] = CRGB(255,127,0);
-        }
-        if(spinnerSpeed > 2){
-            leds[9] = CRGB(255,127,0);
-        }
-        rainbow=(rainbow+1)%255;
     }
+    for(int i = 0; i<4;i++){
+        leds[i+7] = CHSV(rainbow+(64*i),255,64);
+    }
+    for(int i = 0; i<22;i++){
+        leds[i+11] = CHSV(rainbow+(11.63*i),255,64);
+    }
+    if(spinnerSpeed > 5){
+        leds[7] = CRGB(100,40,0);
+    }
+    if(spinnerSpeed < -5){
+        leds[9] = CRGB(100,40,0);
+    }
+    rainbow++;
+    FastLED.show();
 }
