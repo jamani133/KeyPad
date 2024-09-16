@@ -12,7 +12,6 @@
 
 #define LED_COUNT 33
 #define LED_PIN    16
-Adafruit_NeoPixel leds(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 
 const uint8_t RTDeadzone         = 2;
@@ -27,7 +26,8 @@ uint16_t      bottomTrim[6] = {      0,      0,      0,      0,      0,      0 }
 AS5600 as5600;   //  use default Wire
 int prevAngle = 0;
 int angle = 0;
-
+int spinnerSpeed = 0;
+CRGBArray<LED_COUNT> leds;
 
 void setup(){
     Serial.begin(9600);
@@ -35,9 +35,7 @@ void setup(){
     Consumer.begin();
     as5600.begin();
     loadSettings();
-    leds.begin();
-    leds.show();
-    leds.setBrightness(255);
+    FastLED.addLeds<NEOPIXEL,LED_PIN>(leds, LED_COUNT);
     delay(1000);
 }
 void loop(){
@@ -49,7 +47,18 @@ void loop(){
 
 void readButtons(){
     for(int i = 0; i<6;i++){
+        uint16_t pos = map(analogRead(pins[i],bottomTrim,topTrim,0,1023));
+        if(keyStates[i]){
 
+        }else{
+
+        }
+        if(pos < deadzone){
+            keyStates[i] = false;
+        }
+        if(pos > 1023-deadzone){
+            keyStates[i] = true;
+        }
     }
 }
 
@@ -71,7 +80,7 @@ void saveSettings(){
 
 void handleSpinner(){
     angle = as5600.getCumulativePosition();
-    int spinnerSpeed = as5600.getAngularSpeed(AS5600_MODE_RPM);
+    spinnerSpeed = as5600.getAngularSpeed(AS5600_MODE_RPM);
     if(abs(spinnerSpeed) < 2){
         as5600.resetCumulativePosition();
         prevAngle = angle;
@@ -88,5 +97,24 @@ void handleSpinner(){
 }
 
 void updateLeds(){
-    
+    for(int i = 0; i<7;i++){
+        if(keyStates[i]){
+            leds[i] = CRGB(255,127,0);
+        }else{
+            leds[i] = CRGB(0,127,0);
+        }
+        if(int i = 0; i<4;i++){
+            leds[i+7] = CHSV(rainbow+(64*i),255,64);
+        }
+        if(int i = 0; i<22;i++){
+            leds[i+11] = CHSV(rainbow+(11.63*i),255,64);
+        }
+        if(spinnerSpeed < 2){
+            leds[7] = CRGB(255,127,0);
+        }
+        if(spinnerSpeed > 2){
+            leds[9] = CRGB(255,127,0);
+        }
+        rainbow=(rainbow+1)%255;
+    }
 }
