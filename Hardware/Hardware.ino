@@ -48,16 +48,12 @@ void loop(){
 void readButtons(){
     for(int i = 0; i<6;i++){
         uint16_t pos = map(analogRead(pins[i],bottomTrim,topTrim,0,1023));
-        if(keyStates[i]){
-
-        }else{
-
-        }
         if(pos < deadzone){
             keyStates[i] = false;
-        }
-        if(pos > 1023-deadzone){
+            changePoint[i] = 0;
+        }else if(pos > 1023-deadzone){
             keyStates[i] = true;
+            changePoint[i] = 1023;
         }
     }
 }
