@@ -13,15 +13,16 @@
 #define LED_COUNT 33
 #define LED_PIN   16
 
-const uint16_t deadzone           = 25;
-const uint16_t RTDeadzone         =  2;
+const uint16_t deadzone           = 7;
+const uint16_t RTDeadzone         = 3;
 //                              key0    key1    key2    key3    key4    key5    key6  spinner  base
-const int           pins[7] = {     A0,     A1,     A2,     A3,     A7,     A8,     10 };
+const int           pins[7] = {     A8,     A9,     A0,     A1,     A6,     A2,     10 };
 bool           keyStates[7] = {  false,  false,  false,  false,  false,  false,  false };
+bool       prevKeyStates[7] = {  false,  false,  false,  false,  false,  false,  false };
 uint16_t     changePoint[6] = {      0,      0,      0,      0,      0,      0 };
 uint16_t         topTrim[6] = {      0,      0,      0,      0,      0,      0 };
 uint16_t      bottomTrim[6] = {      0,      0,      0,      0,      0,      0 };
-
+char                keys[7] = {    'x',    'c',    'v',    'b',    'd',    'f',    'g'};
 
 AS5600 as5600;   //  use default Wire
 int prevAngle = 0;
@@ -29,7 +30,7 @@ int angle = 0;
 int spinnerSpeed = 0;
 CRGBArray<LED_COUNT> leds;
 uint8_t rainbow = 0;
-
+bool calibrate = false;
 void setup(){
     Serial.begin(9600);
     Wire.begin();
@@ -45,19 +46,97 @@ void loop(){
     }
     EVERY_N_MILLISECONDS( 25 ) {
         updateLeds();
+        if(calibrate){
+            calib();
+        }
+    }
+
+
+    EVERY_N_MILLISECONDS( 1000 ) {
+        if(Serial.available()){
+            String cmd = Serial.readString();
+            if (cmd.equals("save\n")){
+                Serial.println("Calibration Saved");
+                saveSettings();
+                calibrate = false;
+            }
+            if (cmd.equals("calibrate\n")){
+                Serial.println("Calibration Started");
+                calibrate = true;
+                resetCalibration();
+            }
+            if (cmd.equals("stop\n")){
+                Serial.println("Calibration Stopped");
+                calibrate = false;
+            }
+            if (cmd.equals("load\n")){
+                Serial.println("Calibration Loaded");
+                calibrate = false;
+                loadSettings();
+            }
+        }
+    }
+
+    delayMicroseconds(500);
+    readButtons();
+    sendEvents();
+    for(int i = 0; i<7;i++){
+        prevKeyStates[i] = keyStates[i];
+    }
+    
+}
+
+
+void sendEvents(){
+    for(int i = 0; i<2;i++){
+        if(keyStates[i] && !prevKeyStates[i]){
+            Keyboard.press(keys[i]);
+        }
+        if(!keyStates[i] && prevKeyStates[i]){
+            Keyboard.release(keys[i]);
+        }
     }
 }
 
+void calib(){
+    for(int i = 0; i<6;i++){
+        uint16_t pos = analogRead(pins[i]);
+        if(pos < bottomTrim[i]){
+            bottomTrim[i] = pos;
+        }else if(pos > topTrim[i]){
+            topTrim[i] = pos;
+        }
+    }
+}
+
+
+void resetCalibration(){
+    for(int i = 0; i<6;i++){
+        topTrim[i] = 0;
+        bottomTrim[i] = 1023;
+    }
+}
+
+
 void readButtons(){
     for(int i = 0; i<6;i++){
-        uint16_t pos = map(analogRead(pins[i]),bottomTrim[i],topTrim[i],0,1023);
+        uint16_t pos = sqrt(map(analogRead(pins[i]),bottomTrim[i],topTrim[i],1024,0));
         if(pos < deadzone){
             keyStates[i] = false;
-            changePoint[i] = 0;
-        }else if(pos > 1023-deadzone){
-            keyStates[i] = true;
-            changePoint[i] = 1023;
         }
+        if (pos > changePoint[i] + RTDeadzone){
+            keyStates[i] = true;
+            changePoint[i] = pos;//f
+        }
+        if (pos < changePoint[i] - RTDeadzone){
+            keyStates[i] = false;
+            changePoint[i] = pos;
+        }
+        
+        //if(i == 2){  
+        //    Serial.print(pos);
+        //    Serial.print("\t0\t32\n");
+        //}
     }
 }
 
@@ -74,6 +153,13 @@ void saveSettings(){
         EEPROM.write((2*i)+1,(topTrim[i]&0xff00)>>8);
         EEPROM.write((2*i)+12,bottomTrim[i]&0x00ff);
         EEPROM.write((2*i)+13,(bottomTrim[i]&0xff00)>>8);
+        Serial.print("Key\t");
+        Serial.print(i);
+        Serial.print("  : Bottom =\t");
+        Serial.print(bottomTrim[i]);
+        Serial.print("\tTop =\t");
+        Serial.print(topTrim[i]);
+        Serial.print("\n");
     }
 }
 

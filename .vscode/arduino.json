@@ -1,5 +1,5 @@
 {
     "board": "arduino:avr:micro",
-    "port": "COM6",
+    "port": "COM7",
     "sketch": "Hardware\\Hardware.ino"
 }
