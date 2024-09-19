@@ -38,6 +38,7 @@ void setup(){
     as5600.begin();
     loadSettings();
     FastLED.addLeds<NEOPIXEL,LED_PIN>(leds, LED_COUNT);
+    pinMode(pins[6],INPUT_PULLUP);
     delay(1000);
 }
 void loop(){
@@ -88,7 +89,7 @@ void loop(){
 
 
 void sendEvents(){
-    for(int i = 0; i<2;i++){
+    for(int i = 0; i<7;i++){
         if(keyStates[i] && !prevKeyStates[i]){
             Keyboard.press(keys[i]);
         }
@@ -120,17 +121,22 @@ void resetCalibration(){
 
 void readButtons(){
     for(int i = 0; i<6;i++){
-        uint16_t pos = sqrt(map(analogRead(pins[i]),bottomTrim[i],topTrim[i],1024,0));
+        int analogVal = 0;
+        for(int j = 0;j<5;j++){
+            analogVal += analogRead(pins[i]);
+        }
+        uint16_t pos = sqrt(map(analogVal/5,bottomTrim[i],topTrim[i],1024,0));
         if(pos < deadzone){
             keyStates[i] = false;
-        }
-        if (pos > changePoint[i] + RTDeadzone){
-            keyStates[i] = true;
-            changePoint[i] = pos;//f
-        }
-        if (pos < changePoint[i] - RTDeadzone){
-            keyStates[i] = false;
-            changePoint[i] = pos;
+        }else{
+            if(changePoint[i] < pos){
+                changePoint[i] = pos;
+                keyStates[i] = true;
+            }
+            if(changePoint[i] > pos+RTDeadzone){
+                changePoint[i] = pos+RTDeadzone;
+                keyStates[i] = false;
+            }
         }
         
         //if(i == 2){  
@@ -138,6 +144,7 @@ void readButtons(){
         //    Serial.print("\t0\t32\n");
         //}
     }
+    keyStates[6] = !digitalRead(pins[6]);
 }
 
 void loadSettings(){
