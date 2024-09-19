@@ -13,7 +13,7 @@
 #define LED_COUNT 33
 #define LED_PIN   16
 
-const uint16_t deadzone           = 7;
+const uint16_t deadzone           = 4;
 const uint16_t RTDeadzone         = 3;
 //                              key0    key1    key2    key3    key4    key5    key6  spinner  base
 const int           pins[7] = {     A8,     A9,     A0,     A1,     A6,     A2,     10 };
