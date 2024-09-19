@@ -101,7 +101,11 @@ void sendEvents(){
 
 void calib(){
     for(int i = 0; i<6;i++){
-        uint16_t pos = analogRead(pins[i]);
+        int analogVal = 0;
+        for(int j = 0;j<20;j++){
+            analogVal += analogRead(pins[i]);
+        }
+        uint16_t pos = analogVal/20;
         if(pos < bottomTrim[i]){
             bottomTrim[i] = pos;
         }else if(pos > topTrim[i]){
