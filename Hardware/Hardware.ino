@@ -9,16 +9,19 @@
 #include "FastLED.h"
 #include "AS5600.h"
 #include <HID-Project.h>
+#define LAYOUT_GERMAN
 
 #define LED_COUNT 33
 #define LED_PIN   16
 
 const uint16_t deadzone           = 4;
 const uint16_t RTDeadzone         = 3;
+const uint16_t AnalogDeadzone     = 4;
 //                              key0    key1    key2    key3    key4    key5    key6  spinner  base
 const int           pins[7] = {     A8,     A9,     A0,     A1,     A6,     A2,     10 };
 bool           keyStates[7] = {  false,  false,  false,  false,  false,  false,  false };
 bool       prevKeyStates[7] = {  false,  false,  false,  false,  false,  false,  false };
+bool      prevKeyStates2[7] = {  false,  false,  false,  false,  false,  false,  false };
 uint16_t     changePoint[6] = {      0,      0,      0,      0,      0,      0 };
 uint16_t         topTrim[6] = {      0,      0,      0,      0,      0,      0 };
 uint16_t      bottomTrim[6] = {      0,      0,      0,      0,      0,      0 };
@@ -36,14 +39,17 @@ bool calibrate = false;
 bool ledState = false;
 void setup(){
     Serial.begin(9600);
-    
+    loadSettings();
     Wire.begin();
+    if(mode == 1 || mode == 2){
+        Gamepad.begin();
+    }else{
+        Keyboard.begin();
+    }
     Consumer.begin();
     as5600.begin();
-    loadSettings();
     FastLED.addLeds<NEOPIXEL,LED_PIN>(leds, LED_COUNT);
     pinMode(pins[6],INPUT_PULLUP);
-    Gamepad.begin();
     delay(1000);
     
 }
@@ -65,7 +71,9 @@ void loop(){
 
     //delayMicroseconds(500);
     readButtons();
-    sendEvents();
+    if(!calibrate){
+        sendEvents();
+    }
     for(int i = 0; i<7;i++){
         prevKeyStates[i] = keyStates[i];
     }
@@ -74,6 +82,7 @@ void loop(){
 void getSerial(){
     if(Serial.available()){
         String cmd = Serial.readString();
+        clearLeds();
         if (cmd.equals("save\n")){
             Serial.println("Calibration Saved");
             saveSettings();
@@ -136,6 +145,13 @@ void getSerial(){
     }
 }
 
+
+void clearLeds(){
+    for(int i = 0 ; i<33 ; i++){
+        leds[i] = CRGB(0,0,0);
+    }
+}
+
 void sendEvents(){
     switch(mode){
         case 0:
@@ -162,15 +178,33 @@ void sendOSU(){
             Keyboard.release(keys[i]);
         }
     }
-    if(pos[3] > 20){
-        keyboard.write(KEY_ENTER);
+    if(pos[3] > 25 && !prevKeyStates2[3]){
+        Keyboard.press(KEY_ENTER);
+        prevKeyStates2[3] = true;
+    }else if(pos[3] < 20 && prevKeyStates2[3]){
+        Keyboard.release(KEY_ENTER);
+        prevKeyStates2[3] = false;
     }
-    if(pos[5] > 20){
-        keyboard.write(KEY_ESC);
+    
+
+
+    if(pos[5] > 25 && !prevKeyStates2[5]){
+        Keyboard.press(KEY_ESC);
+        prevKeyStates2[5] = true;
+    }else if(pos[5] < 20 && prevKeyStates2[5]){
+        Keyboard.release(KEY_ESC);
+        prevKeyStates2[5] = false;
     }
-    if(pos[6] > 20){
-        keyboard.write(KEY_F2);
-    }
+    
+
+
+    if(keyStates[6] && !prevKeyStates[6]){
+            Keyboard.press(KEY_F2);
+        }
+        if(!keyStates[6] && prevKeyStates[6]){
+            Keyboard.release(KEY_F2);
+        }
+    
 
 }
 void sendALL(){
@@ -201,28 +235,31 @@ void sendZEEP(){
         Keyboard.release(KEY_UP);
     }
 
-    if(pos[6] > 20){
-        keyboard.write(KEY_RIGHT_SHIFT);
+    if(pos[6] > 25 && !prevKeyStates2[6]){
+        Keyboard.press(KEY_RIGHT_SHIFT);
+        prevKeyStates2[6] = true;
+    }else if(pos[6] < 20 && prevKeyStates2[6]){
+        Keyboard.release(KEY_RIGHT_SHIFT);
+        prevKeyStates2[6] = false;
     }
     
-
-    Gamepad.xAxis(analogToAxis(pos[0],pos[2]));
+    Gamepad.xAxis(analogToAxis(pos[0],pos[2],32768));
     
 }
 void sendCTRL(){
-    Gamepad.yAxis(analogToAxis(pos[2],pos[5]));
-    Gamepad.xAxis(analogToAxis(pos[1],pos[3]));
-    Gamepad.zAxis(analogToAxis(pos[0],pos[4]));
+    Gamepad.yAxis(analogToAxis(pos[2],pos[5],32768));
+    Gamepad.xAxis(analogToAxis(pos[1],pos[3],32768));
+    Gamepad.zAxis(analogToAxis(pos[0],pos[4],127));
 }
 
-void analogToAxis(int neg, int pos){
+int analogToAxis(int neg, int pos,int max){
     if(neg <= AnalogDeadzone){
         neg = 0;
     }
     if(pos <= AnalogDeadzone){
         pos = 0;
     }
-    return map(pos-neg,-28,28,0,0xFFFF);
+    return map(pos-neg,-28,28,-max,max);
 }
 
 void calib(){
@@ -252,10 +289,10 @@ void resetCalibration(){
 void readButtons(){
     for(int i = 0; i<6;i++){
         int analogVal = 0;
-        for(int j = 0;j<16;j++){
+        for(int j = 0;j<5;j++){
             analogVal += analogRead(pins[i]);
         }
-        pos[i] = sqrt(map(analogVal>>4,bottomTrim[i],topTrim[i],1024,0));
+        pos[i] = sqrt(map(analogVal/5,bottomTrim[i],topTrim[i],1024,0));
         if(pos[i] < deadzone){
             keyStates[i] = false;
         }else{
@@ -322,14 +359,15 @@ void handleSpinner(){
     }
 }
 
+
 void updateLeds(){
-    swtich(mode){
+    switch(mode){
         case 0:
             if(keyStates[0]){leds[0] = CRGB(128,64,0);}else{leds[0] = CRGB(0,0,64);}
             if(keyStates[1]){leds[1] = CRGB(128,64,0);}else{leds[1] = CRGB(0,0,64);}
 
-            if(keyStates[3]){leds[3] = CRGB(128,64,0);}else{leds[3] = CRGB(0,64,0);}
-            if(keyStates[5]){leds[5] = CRGB(128,64,0);}else{leds[5] = CRGB(64,0,0);}
+            if(prevKeyStates2[3]){leds[3] = CRGB(128,64,0);}else{leds[3] = CRGB(0,64,0);}
+            if(prevKeyStates2[5]){leds[5] = CRGB(128,64,0);}else{leds[5] = CRGB(64,0,0);}
             if(keyStates[6]){leds[6] = CRGB(128,64,0);}else{leds[6] = CRGB(0,64,0);}
         break;
 
