@@ -14,8 +14,8 @@
 #define LED_COUNT 33
 #define LED_PIN   16
 
-const uint16_t deadzone           = 5;
-const uint16_t RTDeadzone         = 5;
+const uint16_t deadzone           = 4;
+const uint16_t RTDeadzone         = 3;
 const uint16_t AnalogDeadzone     = 4;
 //                              key0    key1    key2    key3    key4    key5    key6  spinner  base
 const int           pins[7] = {     A8,     A9,     A0,     A1,     A6,     A2,     10 };
@@ -41,12 +41,11 @@ void setup(){
     Serial.begin(9600);
     loadSettings();
     Wire.begin();
-    if(mode == 1 || mode == 2){
+    
         Gamepad.begin();
-    }else{
         Keyboard.begin();
         Consumer.begin();
-    }
+    
     as5600.begin();
     FastLED.addLeds<NEOPIXEL,LED_PIN>(leds, LED_COUNT);
     pinMode(pins[6],INPUT_PULLUP);
@@ -150,6 +149,7 @@ void clearLeds(){
     for(int i = 0 ; i<33 ; i++){
         leds[i] = CRGB(0,0,0);
     }
+     FastLED.show();
 }
 
 void sendEvents(){
@@ -222,44 +222,58 @@ void sendZEEP(){
     //char                keys[7] = {    'AL',    'DOWN',    'AR',    '',    'UP',    '',    'RSHIFT'};
     
     if(keyStates[1] && !prevKeyStates[1]){
-        Keyboard.press(KEY_DOWN);
+        Gamepad.press(3);
     }
     if(!keyStates[1] && prevKeyStates[1]){
-        Keyboard.release(KEY_DOWN);
+        Gamepad.release(3);
     }
 
     if(keyStates[4] && !prevKeyStates[4]){
-        Keyboard.press(KEY_UP);
+        Gamepad.press(1);
     }
     if(!keyStates[4] && prevKeyStates[4]){
-        Keyboard.release(KEY_UP);
+        Gamepad.release(1);
     }
 
     if(pos[6] > 25 && !prevKeyStates2[6]){
-        Keyboard.press(KEY_RIGHT_SHIFT);
+        Gamepad.press(2);
         prevKeyStates2[6] = true;
     }else if(pos[6] < 20 && prevKeyStates2[6]){
-        Keyboard.release(KEY_RIGHT_SHIFT);
+        Gamepad.release(2);
         prevKeyStates2[6] = false;
     }
     
-    Gamepad.xAxis(analogToAxis(pos[0],pos[2],32768));
-    
+    Gamepad.xAxis(analogToAxis(pos[0],pos[2]));
+    Gamepad.write();
 }
 void sendCTRL(){
-    Gamepad.yAxis(analogToAxis(pos[2],pos[5],32768));
-    Gamepad.xAxis(analogToAxis(pos[1],pos[3],32768));
-    Gamepad.zAxis(analogToAxis(pos[0],pos[4],127));
+    Gamepad.yAxis(analogToAxis(pos[5],pos[2]));
+    Gamepad.xAxis(analogToAxis(pos[1],pos[3]));
+    Gamepad.zAxis(analogToAxisZ(pos[0],pos[4]));
+    Gamepad.write();
 }
 
-int analogToAxis(int neg, int pos,int max){
+int analogToAxis(int neg, int pos){
     if(neg <= AnalogDeadzone){
         neg = 0;
     }
     if(pos <= AnalogDeadzone){
         pos = 0;
     }
-    return map(pos-neg,-28,28,-max,max);
+    neg -= 4;
+    pos -= 4;
+    return min(max(map(pos-neg,-28,28,-32768,32767),-32768),32767);
+}
+int analogToAxisZ(int neg, int pos){
+    if(neg <= AnalogDeadzone){
+        neg = 0;
+    }
+    if(pos <= AnalogDeadzone){
+        pos = 0;
+    }
+    neg -= 4;
+    pos -= 4;
+    return min(max(map(pos-neg,-28,28,-128,127),-128),127);
 }
 
 void calib(){
