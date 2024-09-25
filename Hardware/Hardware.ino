@@ -54,7 +54,9 @@ void setup(){
 }
 void loop(){
     EVERY_N_MILLISECONDS( 10 ) {
-        handleSpinner();
+        if(mode != 4){
+          handleSpinner();
+        }
     }
     EVERY_N_MILLISECONDS( 25 ) {
         if(ledState){
@@ -76,6 +78,9 @@ void loop(){
     }
     for(int i = 0; i<7;i++){
         prevKeyStates[i] = keyStates[i];
+    }
+    if(mode == 4){
+      delay(1);
     }
     
 }
@@ -129,6 +134,15 @@ void getSerial(){
             Serial.println("Reboot to switch to all inputs Mode");
             mode = 3;
         }
+        if (cmd.equals("pain\n")){
+            Serial.println("Reboot to switch to pain Mode");
+            mode = 4;
+        }
+        
+        if (cmd.equals("rst\n")){
+            Serial.println("reset");
+            as5600.resetPosition();
+        }
         if (cmd.equals("help\n")){
             Serial.print("\n\nPossible commands :\n----------------------------------------------\n");
             Serial.print("          save : save settings to EEPROM\n");
@@ -166,6 +180,9 @@ void sendEvents(){
         break;
         case 3:
             sendALL();
+        break;
+        case 4:
+            sendPAIN();
         break;
     }
 }
@@ -224,10 +241,10 @@ void sendALL(){
             //Keyboard.press('l');
             //Keyboard.release(KEY_LEFT_GUI);s
             //Keyboard.release('l');
-            String SendStr = "magicka doodle";
-            for(int n = 0; n < sizeOf(SendStr);n++){
-              Keyboard.write(SendStr.charAt(n));
-            }
+            //String SendStr = "magicka doodle";
+            //for(int n = 0; n < sizeOf(SendStr);n++){
+            //  Keyboard.write(SendStr.charAt(n));
+            //}
         }
         
 }
@@ -259,6 +276,43 @@ void sendZEEP(){
     Gamepad.xAxis(analogToAxis(pos[0],pos[2]));
     Gamepad.write();
 }
+
+void sendPAIN(){
+    //char                keys[7] = {    'AL',    'DOWN',    'AR',    '',    'UP',    '',    'RSHIFT'};
+    
+    if(keyStates[1] && !prevKeyStates[1]){
+        Gamepad.press(3);
+    }
+    if(!keyStates[1] && prevKeyStates[1]){
+        Gamepad.release(3);
+    }
+
+    if(keyStates[4] && !prevKeyStates[4]){
+        Gamepad.press(1);
+    }
+    if(!keyStates[4] && prevKeyStates[4]){
+        Gamepad.release(1);
+    }
+
+    if(pos[6] > 25 && !prevKeyStates2[6]){
+        Gamepad.press(2);
+        prevKeyStates2[6] = true;
+    }else if(pos[6] < 20 && prevKeyStates2[6]){
+        Gamepad.release(2);
+        prevKeyStates2[6] = false;
+    }
+    
+    Gamepad.xAxis(min(max(map(as5600.getCumulativePosition(),-8192,8192,-32768,32767),-32768),32767));
+    Gamepad.write();
+    if(as5600.getCumulativePosition() > 8192){
+      as5600.resetPosition(8192);
+    }
+    if(as5600.getCumulativePosition() < -8192){
+      as5600.resetPosition(-8192);
+    }
+}
+
+
 void sendCTRL(){
     Gamepad.yAxis(analogToAxis(pos[5],pos[2]));
     Gamepad.xAxis(analogToAxis(pos[1],pos[3]));
