@@ -42,10 +42,10 @@ void setup(){
     loadSettings();
     Wire.begin();
     
-        Gamepad.begin();
+        
         Keyboard.begin();
         Consumer.begin();
-    
+        Gamepad.begin();
     as5600.begin();
     FastLED.addLeds<NEOPIXEL,LED_PIN>(leds, LED_COUNT);
     pinMode(pins[6],INPUT_PULLUP);
@@ -66,6 +66,7 @@ void loop(){
     }
     EVERY_N_MILLISECONDS( 1000 ) {
         getSerial();
+        
     }
 
     //delayMicroseconds(500);
@@ -208,8 +209,9 @@ void sendOSU(){
 
 }
 void sendALL(){
-    char                keys[7] = {    'a',    's',    'd',    'f',    'w',    'e',    'r'};
-    for(int i = 0; i<7;i++){
+    //char                keys[7] = {    'a',    's',    'd',    'f',    'w',    'e',    'r'};
+    char                keys[7] = {    'p',    'e',    'n',    'i',    's',    'm',    'a'};
+    for(int i = 0; i<6;i++){
         if(keyStates[i] && !prevKeyStates[i]){
             Keyboard.press(keys[i]);
         }
@@ -217,6 +219,17 @@ void sendALL(){
             Keyboard.release(keys[i]);
         }
     }
+    if(keyStates[6] && !prevKeyStates[6]){
+            //Keyboard.press(KEY_LEFT_GUI);
+            //Keyboard.press('l');
+            //Keyboard.release(KEY_LEFT_GUI);s
+            //Keyboard.release('l');
+            String SendStr = "magicka doodle";
+            for(int n = 0; n < sizeOf(SendStr);n++){
+              Keyboard.write(SendStr.charAt(n));
+            }
+        }
+        
 }
 void sendZEEP(){
     //char                keys[7] = {    'AL',    'DOWN',    'AR',    '',    'UP',    '',    'RSHIFT'};
